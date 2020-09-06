@@ -1,48 +1,68 @@
 ---
-title: "R Notebook"
+title: "DATA 608: Knowledge And Visual Analytics"
+author: "Anjal Hussan, Fall 2020"
+subtitle: "HW1 - ggplot2"
 output:
-  html_document: default
-  html_notebook: default
+  html_document:
+    highlight: zenburn
+    theme: lumen
+    toc: true
+    toc_float: true
 ---
 
 **Principles of Data Visualization and Introduction to ggplot2**
 
-I have provided you with data about the 5,000 fastest growing companies in the US, as compiled by Inc. magazine. lets read this in:
+# Environment setup
+
+```{r, message=F, warning=F}
+if (!require('dplyr')) install.packages('dplyr')
+if (!require('ggplot2')) install.packages('ggplot2')
+if (!require('scales')) install.packages('scales')
+```
+
+# Data loading
+
+Read the data about the 5,000 fastest growing companies in the US, as compiled by Inc. magazine. lets read this in:
 
 ```{r}
 
-inc <- read.csv("https://raw.githubusercontent.com/charleyferrari/CUNY_DATA_608/master/module1/Data/inc5000_data.csv", header= TRUE)
+myDataSet <- read.csv("https://raw.githubusercontent.com/charleyferrari/CUNY_DATA_608/master/module1/Data/inc5000_data.csv", header= TRUE)
 
 ```
 
 And lets preview this data:
 
 ```{r}
-
-head(inc)
-
+head(myDataSet)
 ```
 ```{r}
 
-summary(inc)
+summary(myDataSet)
 
 ```
 
-Think a bit on what these summaries mean. Use the space below to add some more relevant non-visual exploratory information you think helps you understand this data:
-
-```{r}
-
-# Insert your code here, create more chunks as necessary
-
-```
 
 ## Question 1
 
 Create a graph that shows the distribution of companies in the dataset by State (ie how many are in each state). There are a lot of States, so consider which axis you should use. This visualization is ultimately going to be consumed on a 'portrait' oriented screen (ie taller than wide), which should further guide your layout choices.
 
+### Answer
+
 ```{r}
 
-# Answer Question 1 here
+groupByStateWise <- myDataSet %>% 
+    group_by(State) %>% 
+    tally()
+ggplot(groupByStateWise, aes(x=reorder(State, n), y=n)) + 
+    geom_point(size=1) + 
+    geom_segment(aes(x=State, xend=State, y=0, yend=n)) +
+    labs(title="Distribution of 5000 Fastest Growing Companies by State", 
+         caption="Source: Inc Magazine",
+         y="Counts", 
+         x="State") + 
+    theme_classic(base_size = 8) +
+    coord_flip()
+ggsave('FastestGrowingCompanyByState.png')
 
 ```
 
@@ -50,9 +70,36 @@ Create a graph that shows the distribution of companies in the dataset by State 
 
 Lets dig in on the state with the 3rd most companies in the data set. Imagine you work for the state and are interested in how many people are employed by companies in different industries. Create a plot that shows the average and/or median employment by industry for companies in this state (only use cases with full data, use R's `complete.cases()` function.) In addition to this, your graph should show how variable the ranges are, and you should deal with outliers.
 
+### Answer
+
 ```{r}
 
 # Answer Question 2 here
+third_state <- subset(myDataSet, State=="NY")
+third_state <- third_state[complete.cases(third_state$Industry), ] 
+third_state <- third_state[complete.cases(third_state$Employees), ] 
+
+third_state <- arrange(third_state, desc(Employees))
+lower <- min(third_state$Employees)
+upper <- max(third_state$Employees)
+meidan_ny <- paste0("Median NY Employees:  ", median(third_state$Employees))
+ggplot(third_state, aes(x=reorder(Industry, Employees, FUN=median), y=Employees)) + 
+    geom_boxplot(outlier.shape = NA) + 
+    scale_y_continuous(trans = log2_trans(), limits = c(lower, upper)) +
+    geom_hline(yintercept = median(third_state$Employees),
+               color="grey", 
+               linetype="dashed") +
+    geom_text(aes(x=1.5, label=meidan_ny, y = 280), 
+              size = 3,
+              colour="grey") +
+    labs(title="Number of Employees By Industry in NY State",
+         subtitle="5000 Fastest Growing Companies by Industry",
+         caption="Source: Inc Magazine",
+         y="Num Employees, Log2 Transform", 
+         x="") + 
+    theme_classic() +
+    coord_flip()
+ggsave('third_state_Median_employment.png')
 
 ```
 
@@ -60,10 +107,27 @@ Lets dig in on the state with the 3rd most companies in the data set. Imagine yo
 
 Now imagine you work for an investor and want to see which industries generate the most revenue per employee. Create a chart that makes this information clear. Once again, the distribution per industry should be shown.
 
+### Answer
 ```{r}
 
-# Answer Question 3 here
-
+revenue <- myDataSet[complete.cases(myDataSet$Revenue), ]
+revenue <- revenue[complete.cases(revenue$Employees), ] 
+revenue <- revenue %>%
+    group_by(Industry) %>%
+    summarise(TotRev = sum(Revenue, na.rm=T), TotEmp = sum(Employees, na.rm=T)) %>%
+    mutate(AvgRevK = (TotRev/TotEmp)/1000)
+ggplot(revenue, aes(x=reorder(Industry, AvgRevK), y=AvgRevK)) + 
+    geom_bar(stat="identity", width=.5, fill="tomato3")+ 
+    labs(title="Revenue Per Employee",
+         subtitle="5000 Fastest Growing Companies by Industry", 
+         caption="Source: Inc Magazine",
+         y="Revenue - Thousands ($)", 
+         x="") + 
+    theme_classic() +
+    coord_flip()
+ggsave('revenue_per_employee.png')
 ```
 
-
+### Help:
+* http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html
+* http://www.cookbook-r.com/Graphs/Axes_(ggplot2)/
